@@ -9,6 +9,7 @@
     },
     "dependencies": {
         "@ant-design/icons": "^5.2.6",
+        "@formfacade/embed-react": "^1.1.2",
         "@monaco-editor/react": "^4.6.0",
         "expo": "~49.0.15",
         "expo-status-bar": "~1.6.0",

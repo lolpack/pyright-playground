@@ -28,7 +28,7 @@ export interface RightPanelProps {
     code: string;
     getShareableUrl: () => string;
 }
-const rightPanelWidth = 320;
+const rightPanelWidth = 600;
 
 export function RightPanel(props: RightPanelProps) {
     let panelContents: JSX.Element | undefined;
