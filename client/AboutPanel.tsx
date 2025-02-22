@@ -162,7 +162,7 @@ export function AboutPanel(props: AboutPanelProps) {
             <View style={styles.container}>
             <FormfacadeEmbed
                 formFacadeURL="https://formfacade.com/include/109788989504237928448/form/1FAIpQLSe2w9o1tl5rCydJmfPnDMdzDyyo4uKfOlIzhiCJ-sJRndke1g/classic.js/?div=ff-compose"
-                onSubmitForm={() => console.log('Form submitted')}
+                onSubmitForm={handleFormSubmit}
             />
             </View>
         </View>
@@ -215,6 +215,12 @@ function CopyToClipboardButton(props: CopyToClipboardButtonProps) {
         </View>
     );
 }
+
+const handleFormSubmit = () => {
+    // Display a thank you message and reload form
+    alert('Thank you for your feedback! Follow along and join the discussion here: https://discuss.python.org/c/typing/32');
+    window.location.reload();
+};
 
 const styles = StyleSheet.create({
     container: {
