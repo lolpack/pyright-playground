@@ -18,6 +18,7 @@ export interface SessionOptions {
     configOverrides?: { [name: string]: boolean };
     locale?: string;
     code?: string;
+    installedPackages?: string[]; 
 }
 
 export interface Session {

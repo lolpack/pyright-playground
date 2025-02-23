@@ -10,6 +10,7 @@ export interface PlaygroundSettings {
     pythonVersion?: string;
     pythonPlatform?: string;
     locale?: string;
+    installedPackages?: string[];
 }
 
 export interface PlaygroundState {

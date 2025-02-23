@@ -17,6 +17,7 @@ import { logger } from './logging';
 export interface InstallPyrightInfo {
     pyrightVersion: string;
     localDirectory: string;
+    tempDir: string;
 }
 
 // Map of active sessions indexed by ID
@@ -70,8 +71,8 @@ export async function createSession(
         return restartSession(inactiveSession, sessionOptions);
     }
 
-    return installPyright(sessionOptions?.pyrightVersion).then((info) => {
-        return startSession(info.localDirectory, sessionOptions);
+    return installPyright(sessionOptions?.pyrightVersion, sessionOptions?.installedPackages).then((info) => {
+        return startSession(info.localDirectory, info.tempDir, sessionOptions);
     });
 }
 
@@ -153,7 +154,7 @@ export async function getPyrightLatestVersion(): Promise<string> {
         });
 }
 
-function startSession(binaryDirPath: string, sessionOptions?: SessionOptions): Promise<SessionId> {
+function startSession(binaryDirPath: string, tempDirPath: string, sessionOptions?: SessionOptions): Promise<SessionId> {
     return new Promise<SessionId>((resolve, reject) => {
         // Launch a new instance of the language server in another process.
         logger.info(`Spawning new pyright language server from ${binaryDirPath}`);
@@ -163,17 +164,9 @@ function startSession(binaryDirPath: string, sessionOptions?: SessionOptions): P
             './node_modules/pyright/langserver.index.js'
         );
 
-        // Create a temp directory where we can store a synthesized config file.
-        const tempDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright_playground'));
-
         // Synthesize a "pyrightconfig.json" file from the session options and write
         // it to the temp directory so the language server can find it.
         synthesizePyrightConfigFile(tempDirPath, sessionOptions);
-
-        // Synthesize an empty venv directory so that pyright doesn't try to
-        // resolve imports using the default Python environment installed on
-        // the server's docker container.
-        synthesizeVenvDirectory(tempDirPath);
 
         // Set the environment variable for the locale. Older versions
         // of pyright don't handle the local passed via the LSP initialize
@@ -181,6 +174,19 @@ function startSession(binaryDirPath: string, sessionOptions?: SessionOptions): P
         const env = { ...process.env };
         if (sessionOptions?.locale) {
             env.LC_ALL = sessionOptions.locale;
+        }
+
+        // Set the virtual environment path if installedPackages is present
+        if (sessionOptions?.installedPackages && sessionOptions.installedPackages.length > 0) {
+            console.log("GDSFDDFSDF", binaryDirPath)
+            const venvPath = path.join(tempDirPath, 'venv');
+            // env.VIRTUAL_ENV = venvPath;
+            // env.PATH = `${venvPath}\\Scripts;${env.PATH}`;
+        } else {
+            // Synthesize an empty venv directory so that pyright doesn't try to
+            // resolve imports using the default Python environment installed on
+            // the server's docker container.
+            synthesizeVenvDirectory(tempDirPath);
         }
 
         const langServerProcess = fork(
@@ -333,7 +339,9 @@ function getCompatibleInactiveSession(sessionOptions?: SessionOptions): Session 
             sessionOptions?.pythonPlatform !== session.options?.pythonPlatform ||
             sessionOptions?.pyrightVersion !== session.options?.pyrightVersion ||
             sessionOptions?.locale !== session.options?.locale ||
-            sessionOptions?.typeCheckingMode !== session.options?.typeCheckingMode
+            sessionOptions?.typeCheckingMode !== session.options?.typeCheckingMode ||
+            (sessionOptions?.installedPackages && sessionOptions.installedPackages.length > 0 && 
+             sessionOptions.installedPackages.join(',') !== session.options?.installedPackages?.join(','))
         ) {
             return false;
         }
@@ -341,7 +349,7 @@ function getCompatibleInactiveSession(sessionOptions?: SessionOptions): Session 
         const requestedOverrides = sessionOptions?.configOverrides || {};
         const existingOverrides = session.options?.configOverrides || {};
 
-        if (requestedOverrides.length !== existingOverrides.length) {
+        if (Object.keys(requestedOverrides).length !== Object.keys(existingOverrides).length) {
             return false;
         }
 
@@ -362,7 +370,7 @@ function getCompatibleInactiveSession(sessionOptions?: SessionOptions): Session 
     return inactiveSessions.splice(sessionIndex, 1)[0];
 }
 
-async function installPyright(requestedVersion: string | undefined): Promise<InstallPyrightInfo> {
+async function installPyright(requestedVersion: string | undefined, installedPackages?: string[]): Promise<InstallPyrightInfo> {
     logger.info(`Pyright version ${requestedVersion || 'latest'} requested`);
 
     let version: string;
@@ -372,30 +380,99 @@ async function installPyright(requestedVersion: string | undefined): Promise<Ins
         version = await getPyrightLatestVersion();
     }
 
+    // Create a temp directory where we can store a synthesized config file.
+    const tempDirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'pyright_playground'));
+
     return new Promise<InstallPyrightInfo>((resolve, reject) => {
-        const dirName = `./pyright_local/${version}`;
+        const dirName = path.join('pyright_local', version);
+        const venvPath = path.join(tempDirPath, 'venv');
+
+        const setupVirtualEnvAndPackages = () => {
+            if (installedPackages && installedPackages.length > 0) {
+                logger.info(`Checking if venv extists ${path.join(venvPath, 'Scripts', 'python.exe')}`);
+                // Check if the virtual environment is already created
+                if (!fs.existsSync(path.join(venvPath, 'Scripts', 'python.exe'))) {
+                    logger.info(`Creating venv python3 -m venv ${venvPath}`);
+                    exec(`python3 -m venv ${venvPath}`, (err) => {
+                        if (err) {
+                            logger.error(`Failed to create virtual environment: ${err.message}`);
+                            reject(`Failed to create virtual environment: ${err.message}`);
+                            return;
+                        }
+
+                        installPackages(installedPackages);
+                    });
+                } else {
+                    logger.info(`Venv extists!}`);
+                    installPackages(installedPackages);
+                }
+            } else {
+                resolve({ pyrightVersion: version, localDirectory: dirName, tempDir: tempDirPath });
+            }
+        };
+
+        const installPackages = (installedPackages: string[]) => {
+            // Check which packages are already installed
+            const checkPackages = installedPackages.map(pkg => `${venvPath}\\Scripts\\pip show ${pkg}`).join(' && ') || '';
+            exec(checkPackages, (err, stdout, stderr) => {
+                const installed = new Set(stdout.split('\n').filter(line => line.startsWith('Name: ')).map(line => line.split(' ')[1].replace('\r', '')));
+                const toInstall = installedPackages.filter(pkg => !installed.has(pkg));
+                const toRemove = Array.from(installed).filter(pkg => !installedPackages.includes(pkg));
+                console.log(installedPackages, installed, toInstall, toRemove);
+                const installCmd = toInstall.length > 0 ? `${venvPath}\\Scripts\\pip install ${toInstall.join(' ')}` : null;
+                const removeCmd = toRemove.length > 0 ? `${venvPath}\\Scripts\\pip uninstall -y ${toRemove.join(' ')}` : null;
+        
+                const runCommand = (cmd: string | null, callback: () => void) => {
+                    if (cmd) {
+                        exec(cmd, (err) => {
+                            if (err) {
+                                logger.error(`Failed to run command "${cmd}": ${err.message}`);
+                                reject(`Failed to run command "${cmd}": ${err.message}`);
+                                return;
+                            }
+                            callback();
+                        });
+                    } else {
+                        callback();
+                    }
+                };
+        
+                runCommand(removeCmd, () => {
+                    if (removeCmd) {
+                        logger.info(`Removed packages: ${toRemove.join(', ')}`);
+                    }
+                    console.log(installCmd);
+                    runCommand(installCmd, () => {
+                        if (installCmd) {
+                            logger.info(`Installed packages: ${toInstall.join(', ')}`);
+                        }
+                        logger.info(`Packages updated successfully`);
+                        resolve({ pyrightVersion: version, localDirectory: dirName, tempDir: tempDirPath });
+                    });
+                });
+            });
+        };
 
         if (fs.existsSync(dirName)) {
             logger.info(`Pyright version ${version} already installed`);
-            resolve({ pyrightVersion: version, localDirectory: dirName });
-            return;
-        }
-
-        logger.info(`Attempting to install pyright version ${version}`);
-        exec(
-            `mkdir -p ${dirName}/node_modules && cd ${dirName} && npm install pyright@${version}`,
-            (err) => {
+        } else {
+            logger.info(`Attempting to install pyright version ${version}`);
+            fs.mkdirSync(path.join(dirName, 'node_modules'), { recursive: true });
+    
+            exec(`cd ${dirName} && npm install pyright@${version}`, (err) => {
                 if (err) {
                     logger.error(`Failed to install pyright ${version}`);
                     reject(`Failed to install pyright@${version}`);
                     return;
                 }
-
+    
                 logger.info(`Install of pyright ${version} succeeded`);
+            });
+        }
 
-                resolve({ pyrightVersion: version, localDirectory: dirName });
-            }
-        );
+
+
+        setupVirtualEnvAndPackages();
     });
 }
 
@@ -424,10 +501,25 @@ function synthesizePyrightConfigFile(tempDirPath: string, sessionOptions?: Sessi
         config.typeCheckingMode = 'strict';
     }
 
-    // Set the venvPath to a synthesized venv to prevent pyright from
-    // trying to resolve imports using the default Python environment
-    // installed on the server's docker container.
-    config.venvPath = '.';
+    // // Set the venvPath to a synthesized venv to prevent pyright from
+    // // trying to resolve imports using the default Python environment
+    // // installed on the server's docker container.
+    // // Set the venvPath to the correct virtual environment path
+    // if (sessionOptions?.installedPackages && sessionOptions.installedPackages.length > 0) {
+    //     config.venvPath = path.join(tempDirPath, 'venv');
+    //     config.venv = 'venv';
+    // } else {
+    //     // Synthesize an empty venv directory so that pyright doesn't try to
+    //     // resolve imports using the default Python environment installed on
+    //     // the server's docker container.
+    //     config.venvPath = '.';
+    //     config.venv = 'venv';
+    // }
+
+    // Synthesize an empty venv directory so that pyright doesn't try to
+    // resolve imports using the default Python environment installed on
+    // the server's docker container.
+    config.venvPath = '';
     config.venv = 'venv';
 
     // Indicate that we don't want to resolve native libraries. This is

@@ -281,6 +281,23 @@ function validateSessionOptions(req: Request, res: Response): SessionOptions | u
         }
     }
 
+    const installedPackages: string[] = [];
+    if (req.body.installedPackages !== undefined) {
+        if (!Array.isArray(req.body.installedPackages)) {
+            res.status(400).json({ message: 'Invalid installedPackages' });
+            return undefined;
+        }
+
+        for (const pkg of req.body.installedPackages) {
+            if (typeof pkg !== 'string') {
+                res.status(400).json({ message: `Invalid value for installedPackages: ${pkg}` });
+                return undefined;
+            }
+
+            installedPackages.push(pkg);
+        }
+    }
+
     return {
         pyrightVersion,
         pythonVersion,
@@ -289,6 +306,7 @@ function validateSessionOptions(req: Request, res: Response): SessionOptions | u
         configOverrides,
         locale,
         code,
+        installedPackages,
     };
 }
 

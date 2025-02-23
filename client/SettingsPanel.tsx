@@ -1,8 +1,3 @@
-/*
- * Copyright (c) Eric Traut
- * A panel that displays settings for the app.
- */
-
 import * as icons from '@ant-design/icons-svg';
 import { useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -37,6 +32,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
     const pythonVersionMenuRef = useRef<MenuRef>(null);
     const pythonPlatformMenuRef = useRef<MenuRef>(null);
     const localeMenuRef = useRef<MenuRef>(null);
+    const installedPackagesMenuRef = useRef<MenuRef>(null);
     const configOverrides = getNonDefaultConfigOptions(props.settings);
 
     return (
@@ -203,6 +199,40 @@ export function SettingsPanel(props: SettingsPanelProps) {
             </View>
 
             <SettingsDivider />
+            <SettingsHeader headerText={'Installed Packages'} />
+            <View style={styles.selectionContainer}>
+                <Text style={styles.selectedOptionText} selectable={false}>
+                    {props.settings.installedPackages?.join(', ') || 'None'}
+                </Text>
+                <MenuButton
+                    onPress={() => {
+                        installedPackagesMenuRef.current?.open();
+                    }}
+                />
+                <Menu name={'installedPackages'} ref={installedPackagesMenuRef}>
+                    <CheckmarkMenu
+                        items={['jax', 'numpy', 'torch', 'tensorflow'].map((item) => {
+                            return {
+                                label: item,
+                                checked: props.settings.installedPackages?.includes(item) ?? false,
+                            };
+                        })}
+                        onSelect={(item) => {
+                            const installedPackages = props.settings.installedPackages ?? [];
+                            const updatedPackages = installedPackages.includes(item.label)
+                                ? installedPackages.filter((pkg) => pkg !== item.label)
+                                : [...installedPackages, item.label];
+
+                            props.onUpdateSettings({
+                                ...props.settings,
+                                installedPackages: updatedPackages,
+                            });
+                        }}
+                    />
+                </Menu>
+            </View>
+
+            <SettingsDivider />
             <SettingsHeader headerText={'Language'} />
             <View style={styles.selectionContainer}>
                 <Text style={styles.selectedOptionText} selectable={false}>
@@ -240,6 +270,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                     onPress={() => {
                         props.onUpdateSettings({
                             configOverrides: {},
+                            installedPackages: [],
                         });
                     }}
                 />
@@ -307,7 +338,8 @@ function areSettingsDefault(settings: PlaygroundSettings): boolean {
         settings.pyrightVersion === undefined &&
         settings.pythonVersion === undefined &&
         settings.pythonPlatform === undefined &&
-        settings.locale === undefined
+        settings.locale === undefined &&
+        (settings.installedPackages === undefined || settings.installedPackages.length === 0)
     );
 }
 

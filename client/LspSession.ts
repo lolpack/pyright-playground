@@ -246,6 +246,10 @@ export class LspSession {
             sessionOptions.code = this._initialCode;
             sessionOptions.configOverrides = { ...this._settings.configOverrides };
             sessionOptions.locale = this._settings.locale ?? navigator.language;
+
+            if (this._settings.installedPackages) {
+                sessionOptions.installedPackages = this._settings.installedPackages;
+            }
         }
 
         const endpoint = appServerApiAddressPrefix + `session`;
