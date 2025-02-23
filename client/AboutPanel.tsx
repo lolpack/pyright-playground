@@ -23,12 +23,12 @@ export function AboutPanel(props: AboutPanelProps) {
             </Text>
             <Text style={styles.aboutText} selectable={false}>
                 {
-                    'This is an early demo version of Pyright with an early release of the Shape Type proposal using TypeVars.'
+                    'This is an early demo version of Pyright with an in-progress example of what Shape Types in Python could look like using TypeVars.'
                 }
             </Text>
             <Text style={styles.aboutText} selectable={false}>
                 {
-                    'Your feedback will help us refine the demonstration and understand what we should propose as a change to the Python Type System.'
+                    'There is a good amount to be worked out before this can turn into a PEP. We would like to get feedback on the syntax generally and whether having shape checking like this will help solve tensor mismatch challenges for AI/ML developers.'
                 }
             </Text>
             <TextWithLink
