@@ -160,7 +160,8 @@ function startSession(binaryDirPath: string, sessionOptions?: SessionOptions): P
         const binaryPath = path.join(
             process.cwd(),
             binaryDirPath,
-            './node_modules/pyright/langserver.index.js'
+            'pyright-langserver.js'
+            //'./node_modules/pyright/langserver.index.js'
         );
 
         // Create a temp directory where we can store a synthesized config file.
@@ -363,39 +364,19 @@ function getCompatibleInactiveSession(sessionOptions?: SessionOptions): Session 
 }
 
 async function installPyright(requestedVersion: string | undefined): Promise<InstallPyrightInfo> {
-    logger.info(`Pyright version ${requestedVersion || 'latest'} requested`);
+    logger.info(`Using pre-built Pyright language server from custom branch`);
 
-    let version: string;
-    if (requestedVersion) {
-        version = requestedVersion;
-    } else {
-        version = await getPyrightLatestVersion();
-    }
+    // const dirName = `C:\\Users\\polla\\dev\\pyright-playground\\server\\refinement-build`;
+    const dirName = './typevar-build';
 
     return new Promise<InstallPyrightInfo>((resolve, reject) => {
-        const dirName = `./pyright_local/${version}`;
-
         if (fs.existsSync(dirName)) {
-            logger.info(`Pyright version ${version} already installed`);
-            resolve({ pyrightVersion: version, localDirectory: dirName });
-            return;
+            logger.info(`Pre-built Pyright language server found at ${dirName}`);
+            resolve({ pyrightVersion: requestedVersion || 'custom', localDirectory: dirName });
+        } else {
+            logger.error(`Pre-built Pyright language server not found at ${dirName}`);
+            reject(`Pre-built Pyright language server not found at ${dirName}`);
         }
-
-        logger.info(`Attempting to install pyright version ${version}`);
-        exec(
-            `mkdir -p ${dirName}/node_modules && cd ${dirName} && npm install pyright@${version}`,
-            (err) => {
-                if (err) {
-                    logger.error(`Failed to install pyright ${version}`);
-                    reject(`Failed to install pyright@${version}`);
-                    return;
-                }
-
-                logger.info(`Install of pyright ${version} succeeded`);
-
-                resolve({ pyrightVersion: version, localDirectory: dirName });
-            }
-        );
     });
 }
 

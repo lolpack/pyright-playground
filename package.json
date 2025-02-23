@@ -1,8 +1,10 @@
 {
-  "name": "pyright-playground",
+  "name": "pyright-playground-shape-type",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "build": "cd client && npm i && npm run build:web && cd ../server && npm i && npm run build && cd .."
+    "build": "cd client && npm i && npm run build:web && cd ../server && npm i && npm run build && cd ..",
+    "heroku-postbuild": "npm run build",
+    "start": "cd server && node index.js"
   }
 }
