@@ -22,14 +22,24 @@ export default router;
 
 // Configure CORS middleware.
 const corsOptions: CorsOptions = {
-    origin: [
-        /http:\/\/localhost\:*/,
-        'https://pyright-playground.azurewebsites.net',
-        'https://pyright-play.net',
-    ],
+    origin: (origin, callback) => {
+        // Allow localhost during development.
+        if (!origin || origin.match(/http:\/\/localhost\:*/)) {
+            return callback(null, true);
+        }
+
+        // Allow requests from the same origin as the deployed app.
+        const allowedHosts = [process.env.HOST_URL || ''];
+        if (allowedHosts.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error('Not allowed by CORS'));
+    },
 };
 
 router.use(cors(corsOptions));
+
 
 router.get('/status', (req, res) => {
     getStatus(req, res);

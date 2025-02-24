@@ -30,10 +30,9 @@ export interface ServerStatus {
 // Number of attempts to create a new session before giving up.
 const maxErrorCount = 4;
 
-let appServerApiAddressPrefix = 'https://pyright-playground.azurewebsites.net/api/';
+let appServerApiAddressPrefix = `${window.location.origin}/api/`;
 
-// TODO - this is for local debugging in the browser. Remove for
-// React Native code.
+// For local development override.
 const currentUrl = new URL(window.location.href);
 if (currentUrl.hostname === 'localhost') {
     appServerApiAddressPrefix = 'http://localhost:3000/api/';
