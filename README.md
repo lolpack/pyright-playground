@@ -11,3 +11,7 @@ Do you have questions about Pyright Playground? Post your questions in [the disc
 To report a bug or request an enhancement for Pyright Playground, file a new issue in the [pyright-playground issue tracker](https://github.com/erictraut/pyright-playground/issues).
 
 To report a bug or request an enhancement for Pyright, file a new issue in the [pyright issue tracker](https://github.com/microsoft/pyright/issues).
+
+## Deploy
+
+`git push heroku vendor_typevar:main`

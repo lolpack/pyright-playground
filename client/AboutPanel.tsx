@@ -219,7 +219,10 @@ function CopyToClipboardButton(props: CopyToClipboardButtonProps) {
 const handleFormSubmit = () => {
     // Display a thank you message and reload form
     alert('Thank you for your feedback! Follow along and join the discussion here: https://discuss.python.org/c/typing/32');
-    window.location.reload();
+    // Delay reloading the page to allow form submission to process
+    setTimeout(() => {
+        window.location.reload();
+    }, 5000); // Adjust delay as needed (e.g., 2000ms = 2s)
 };
 
 const styles = StyleSheet.create({
